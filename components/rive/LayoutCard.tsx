@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
 import { BackgroundColor } from './types'
 
 const fitValues: (keyof typeof Fit)[] = [
@@ -102,18 +101,17 @@ export function LayoutCard({ alignFitIndex, setAlignFitIndex, background, setBac
               </SelectContent>
             </Select>
           </div>
-          <div className='grid grid-rows-3 grid-cols-3 gap-1'>
+          <div className='grid grid-rows-3 grid-cols-3 gap-1 w-fit'>
             {alignValues.map((_, index) => (
-              <Button
+              <button
                 key={`btn_${index}`}
-                variant='ghost'
-                size='icon'
+                type='button'
                 onClick={() =>
                   setAlignFitIndex({ ...alignFitIndex, alignment: index })
                 }
-                className={`w-6 h-6 p-0 ${
+                className={`w-6 h-6 rounded transition-colors ${
                   alignFitIndex.alignment === index
-                    ? 'bg-foreground hover:bg-foreground'
+                    ? 'bg-foreground'
                     : 'bg-muted hover:bg-secondary-foreground'
                 }`}
               />
