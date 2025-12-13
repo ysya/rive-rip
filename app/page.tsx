@@ -1,14 +1,16 @@
 'use client'
 
-import { DragEvent, useState, useRef, useEffect } from 'react'
+import { DragEvent, useState, useRef, useEffect, useCallback } from 'react'
 import {
-  Rive,
+  useRive,
+  useViewModel,
+  useViewModelInstance,
   Layout,
-  EventType,
   Fit,
   Alignment,
-  StateMachineInput,
+  EventType,
   RiveEventType,
+  StateMachineInput,
 } from '@rive-app/react-canvas'
 import {
   Card,
@@ -37,7 +39,6 @@ import {
   RiveStateMachines,
   RiveController,
   PlayerState,
-  PlayerError,
   Status,
 } from '@/components/rive'
 import { PerformanceCard } from '@/components/rive/PerformanceCard'
@@ -55,31 +56,26 @@ import {
 } from '@/components/rive/LayoutCard'
 
 export default function Home() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // File state
+  const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null)
+  const [filename, setFilename] = useState<string | null>(null)
+  const [fileSize, setFileSize] = useState<string | null>(null)
 
   // Core state
   const [status, setStatus] = useState<Status>({
     current: PlayerState.Idle,
     hovering: false,
   })
-  const [filename, setFilename] = useState<string | null>(null)
-  const [fileSize, setFileSize] = useState<string | null>(null)
-  const [riveAnimation, setRiveAnimation] = useState<Rive | null>(null)
-  const [animationList, setAnimationList] = useState<RiveAnimations | null>(
-    null,
-  )
-  const [stateMachineList, setStateMachineList] =
-    useState<RiveStateMachines | null>(null)
-  const [stateMachineInputs, setStateMachineInputs] = useState<
-    StateMachineInput[]
-  >([])
+  const [animationList, setAnimationList] = useState<RiveAnimations | null>(null)
+  const [stateMachineList, setStateMachineList] = useState<RiveStateMachines | null>(null)
+  const [stateMachineInputs, setStateMachineInputs] = useState<StateMachineInput[]>([])
   const [isPlaying, setIsPlaying] = useState<boolean>(true)
   const [controller, setController] = useState<RiveController>({
     active: 'animations',
   })
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [background, setBackground] = useState<BackgroundColor>('black')
   const [alignFitIndex, setAlignFitIndex] = useState<AlignFitIndex>({
     alignment: alignValues.indexOf('Center'),
@@ -95,32 +91,49 @@ export default function Home() {
     frameTime: 0,
     lastAdvanceTime: 0,
   })
-  const [isTouchScrollEnabled, setIsTouchScrollEnabled] =
-    useState<boolean>(true)
+  const [isTouchScrollEnabled, setIsTouchScrollEnabled] = useState<boolean>(true)
   const [autoHandleEvents, setAutoHandleEvents] = useState<boolean>(true)
   const frameCountRef = useRef<number>(0)
   const lastFpsUpdateRef = useRef<number>(performance.now())
 
-  // Event handlers setup
+  // useRive hook - only initialize when we have a buffer
+  const { rive, RiveComponent } = useRive(
+    fileBuffer
+      ? {
+          buffer: fileBuffer,
+          autoplay: true,
+          layout: new Layout({
+            fit: Fit[fitValues[alignFitIndex.fit]],
+            alignment: Alignment[alignValues[alignFitIndex.alignment]],
+          }),
+          isTouchScrollEnabled,
+          automaticallyHandleEvents: autoHandleEvents,
+          enableRiveAssetCDN: true,
+          onLoad: () => {
+            setStatus({ current: PlayerState.Active, error: null })
+          },
+          onLoadError: () => {
+            setStatus({ current: PlayerState.Error, error: 'Failed to load animation' })
+            toast.error('Failed to load animation')
+          },
+          onPlay: () => setIsPlaying(true),
+          onPause: () => setIsPlaying(false),
+          onStop: () => setIsPlaying(false),
+        }
+      : null,
+    {
+      shouldResizeCanvasToContainer: true,
+      fitCanvasToArtboardHeight: false,
+    }
+  )
+
+  // ViewModel hooks for Data Binding
+  const viewModel = useViewModel(rive, { useDefault: true })
+  const viewModelInstance = useViewModelInstance(viewModel, { rive })
+
+  // Handle Rive events
   useEffect(() => {
-    if (!riveAnimation) return
-
-    const handleLoad = () => {
-      getAnimationList()
-      getStateMachineList()
-      getTextRuns()
-      getViewModelProperties()
-      setStatus({ current: PlayerState.Active, error: null })
-      setControllerState(controller.active)
-    }
-
-    const handleLoadError = () => {
-      setStatus({ current: PlayerState.Error, error: PlayerError.NoAnimation })
-    }
-
-    const handlePlay = () => setIsPlaying(true)
-    const handlePause = () => setIsPlaying(false)
-    const handleStop = () => setIsPlaying(false)
+    if (!rive) return
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleRiveEvent = (event: any) => {
@@ -156,203 +169,62 @@ export default function Home() {
       }
     }
 
-    riveAnimation.on(EventType.Load, handleLoad)
-    riveAnimation.on(EventType.LoadError, handleLoadError)
-    riveAnimation.on(EventType.Play, handlePlay)
-    riveAnimation.on(EventType.Pause, handlePause)
-    riveAnimation.on(EventType.Stop, handleStop)
-    riveAnimation.on(EventType.RiveEvent, handleRiveEvent)
-    riveAnimation.on(EventType.Advance, handleAdvance)
+    rive.on(EventType.RiveEvent, handleRiveEvent)
+    rive.on(EventType.Advance, handleAdvance)
 
     return () => {
-      riveAnimation.off(EventType.Load, handleLoad)
-      riveAnimation.off(EventType.LoadError, handleLoadError)
-      riveAnimation.off(EventType.Play, handlePlay)
-      riveAnimation.off(EventType.Pause, handlePause)
-      riveAnimation.off(EventType.Stop, handleStop)
-      riveAnimation.off(EventType.RiveEvent, handleRiveEvent)
-      riveAnimation.off(EventType.Advance, handleAdvance)
+      rive.off(EventType.RiveEvent, handleRiveEvent)
+      rive.off(EventType.Advance, handleAdvance)
     }
-  }, [riveAnimation])
+  }, [rive])
 
+  // Initialize animation list and state machines when rive is loaded
   useEffect(() => {
-    if (status.current === PlayerState.Error && status.error !== null) {
-      reset()
-      toast.error('Your file has no animations.')
-    } else {
-      if (status.current === PlayerState.Active && !animationList)
-        getAnimationList()
-      if (status.current === PlayerState.Active && !stateMachineList)
-        getStateMachineList()
+    if (!rive) return
+
+    // Get animations
+    const animations = rive.animationNames
+    if (animations && animations.length > 0) {
+      setAnimationList({ animations, active: animations[0] })
     }
-  }, [status])
 
+    // Get state machines
+    const stateMachines = rive.stateMachineNames
+    if (stateMachines && stateMachines.length > 0) {
+      setStateMachineList({ stateMachines, active: stateMachines[0] })
+      const inputs = rive.stateMachineInputs(stateMachines[0])
+      if (inputs) setStateMachineInputs(inputs)
+    }
+
+    // Get text runs
+    getTextRuns()
+
+    // Get ViewModel properties
+    getViewModelProperties()
+  }, [rive])
+
+  // Update layout when alignFitIndex changes
   useEffect(() => {
-    if (riveAnimation) {
-      riveAnimation.layout = new Layout({
+    if (rive) {
+      rive.layout = new Layout({
         fit: Fit[fitValues[alignFitIndex.fit]],
         alignment: Alignment[alignValues[alignFitIndex.alignment]],
       })
     }
-  }, [alignFitIndex, riveAnimation])
+  }, [alignFitIndex, rive])
 
-  useEffect(() => {
-    if (canvasRef.current && dimensions && riveAnimation) {
-      canvasRef.current.width = dimensions.width
-      canvasRef.current.height = dimensions.height
-      riveAnimation.resizeToCanvas()
-    }
-  }, [dimensions, riveAnimation])
-
-  useEffect(() => {
-    updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
-  }, [])
-
-  // Helper functions
-  const updateDimensions = () => {
-    const targetDimensions =
-      previewRef.current?.getBoundingClientRect() ?? new DOMRect(0, 0, 0, 0)
-    if (
-      targetDimensions.width === dimensions.width &&
-      targetDimensions.height === dimensions.height
-    )
-      return
-    setDimensions({
-      width: targetDimensions.width,
-      height: targetDimensions.height,
-    })
-  }
-
-  const togglePlayback = () => {
-    const active = animationList?.active
-    if (active) {
-      if (!isPlaying) riveAnimation?.play(active)
-      if (isPlaying) riveAnimation?.pause(active)
-    }
-  }
-
-  const setAnimationWithBuffer = (buffer: string | ArrayBuffer | null) => {
-    if (!buffer) return
-
-    setStatus({ current: PlayerState.Loading })
-    if (riveAnimation) {
-      riveAnimation.load({ buffer: buffer as ArrayBuffer, autoplay: true })
-      return
-    }
-
-    try {
-      setRiveAnimation(
-        new Rive({
-          buffer: buffer as ArrayBuffer,
-          canvas: canvasRef.current!,
-          autoplay: true,
-          layout: new Layout({ fit: Fit.Cover, alignment: Alignment.Center }),
-          isTouchScrollEnabled,
-          automaticallyHandleEvents: autoHandleEvents,
-          enableRiveAssetCDN: true,
-        }),
-      )
-      setStatus({ current: PlayerState.Active })
-    } catch {
-      setStatus({ current: PlayerState.Error, error: PlayerError.NoAnimation })
-    }
-  }
-
-  const load = (file: File) => {
-    setFilename(file.name)
-    setFileSize(formatFileSize(file.size))
-    const reader = new FileReader()
-    reader.onload = () => setAnimationWithBuffer(reader.result)
-    reader.readAsArrayBuffer(file)
-    sendGAEvent('event', 'upload', { filename: file.name, fileSize: file.size })
-  }
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' bytes'
-    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
-    else return (bytes / 1048576).toFixed(1) + ' MB'
-  }
-
-  const reset = () => {
-    setIsPlaying(true)
-    setFilename(null)
-    setRiveAnimation(null)
-    setAnimationList(null)
-    setStateMachineList(null)
-    setStateMachineInputs([])
-    setTextRuns([])
-    setRiveEvents([])
-    setViewModelProps([])
-    setPerformanceStats({ fps: 0, frameTime: 0, lastAdvanceTime: 0 })
-    frameCountRef.current = 0
-    lastFpsUpdateRef.current = performance.now()
-    setStatus({ ...status, current: PlayerState.Idle })
-    clearCanvas()
-  }
-
-  const setControllerState = (state: string) => {
-    if (state !== 'animations' && state !== 'state-machines') return
-    setController({
-      ...controller,
-      active: state === 'animations' ? 'animations' : 'state-machines',
-    })
-    if (state === 'animations' && animationList)
-      setActiveAnimation(animationList.active)
-    else if (state === 'state-machines' && stateMachineList)
-      setActiveStateMachine(stateMachineList.active)
-  }
-
-  const setActiveAnimation = (animation: string) => {
-    if (!riveAnimation || !animationList) return
-    clearCanvas()
-    riveAnimation.stop(animationList.active)
-    setAnimationList({ ...animationList, active: animation })
-    riveAnimation.play(animation)
-  }
-
-  const setActiveStateMachine = (stateMachine: string) => {
-    if (!riveAnimation || !stateMachineList) return
-    clearCanvas()
-    riveAnimation.stop(stateMachineList.active)
-    setStateMachineList({ ...stateMachineList, active: stateMachine })
-    riveAnimation.play(stateMachine)
-    const inputs = riveAnimation.stateMachineInputs(stateMachine)
-    setStateMachineInputs(inputs)
-  }
-
-  const getAnimationList = () => {
-    const animations = riveAnimation?.animationNames
-    if (!animations) return
-    setAnimationList({ animations, active: animations[0] })
-  }
-
-  const getStateMachineList = () => {
-    const stateMachines = riveAnimation?.stateMachineNames
-    if (!stateMachines) return
-    setStateMachineList({ stateMachines, active: stateMachines[0] })
-  }
-
-  const getTextRuns = () => {
-    if (!riveAnimation) return
+  // Get text runs from animation
+  const getTextRuns = useCallback(() => {
+    if (!rive) return
     try {
       const foundTextRuns: TextRun[] = []
       const commonNames = [
-        'title',
-        'subtitle',
-        'label',
-        'text',
-        'heading',
-        'description',
-        'name',
-        'value',
-        'count',
-        'message',
+        'title', 'subtitle', 'label', 'text', 'heading',
+        'description', 'name', 'value', 'count', 'message',
       ]
       for (const name of commonNames) {
         try {
-          const value = riveAnimation.getTextRunValue(name)
+          const value = rive.getTextRunValue(name)
           if (value !== undefined && value !== null) {
             foundTextRuns.push({ name, value: String(value) })
           }
@@ -364,32 +236,20 @@ export default function Home() {
     } catch {
       setTextRuns([])
     }
-  }
+  }, [rive])
 
-  const updateTextRun = (name: string, value: string) => {
-    if (!riveAnimation) return
-    try {
-      riveAnimation.setTextRunValue(name, value)
-      setTextRuns((prev) =>
-        prev.map((tr) => (tr.name === name ? { ...tr, value } : tr)),
-      )
-    } catch (error) {
-      console.error('Failed to update text run:', error)
-      toast.error(`Failed to update text run: ${name}`)
-    }
-  }
-
-  const getViewModelProperties = () => {
-    if (!riveAnimation) return
+  // Get ViewModel properties
+  const getViewModelProperties = useCallback(() => {
+    if (!rive) return
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rive = riveAnimation as any
+      const riveInstance = rive as any
       const props: ViewModelProperty[] = []
 
       // Check viewModelCount and iterate through all ViewModels
-      if (typeof rive.viewModelCount === 'number' && rive.viewModelCount > 0) {
-        for (let i = 0; i < rive.viewModelCount; i++) {
-          const vm = rive.viewModelByIndex(i)
+      if (typeof riveInstance.viewModelCount === 'number' && riveInstance.viewModelCount > 0) {
+        for (let i = 0; i < riveInstance.viewModelCount; i++) {
+          const vm = riveInstance.viewModelByIndex(i)
           if (vm && vm.properties) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             vm.properties.forEach((prop: any) => {
@@ -404,12 +264,12 @@ export default function Home() {
       }
 
       // Also try defaultViewModel
-      if (typeof rive.defaultViewModel === 'function') {
-        const defaultVM = rive.defaultViewModel()
+      if (typeof riveInstance.defaultViewModel === 'function') {
+        const defaultVM = riveInstance.defaultViewModel()
         if (defaultVM && defaultVM.properties) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           defaultVM.properties.forEach((prop: any) => {
-            const exists = props.some(p => p.name.includes(`/${prop.name}`))
+            const exists = props.some((p) => p.name.includes(`/${prop.name}`))
             if (!exists) {
               props.push({
                 name: `default/${prop.name}`,
@@ -429,8 +289,181 @@ export default function Home() {
       console.log('ViewModel not available:', error)
       setViewModelProps([])
     }
+  }, [rive])
+
+  // Update text run value
+  const updateTextRun = useCallback(
+    (name: string, value: string) => {
+      if (!rive) return
+      try {
+        rive.setTextRunValue(name, value)
+        setTextRuns((prev) =>
+          prev.map((tr) => (tr.name === name ? { ...tr, value } : tr))
+        )
+      } catch (error) {
+        console.error('Failed to update text run:', error)
+        toast.error(`Failed to update text run: ${name}`)
+      }
+    },
+    [rive]
+  )
+
+  // Update ViewModel property value
+  const updateViewModelProperty = useCallback(
+    (name: string, value: unknown) => {
+      if (!rive) {
+        console.log('No rive instance available')
+        return
+      }
+      try {
+        // Parse the property path (e.g., "View Model 1/max kcal" -> viewModelName="View Model 1", propName="max kcal")
+        const parts = name.split('/')
+        const propName = parts.pop() || name
+        const viewModelName = parts.join('/') || 'default'
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const riveInstance = rive as any
+
+        // Try to get the ViewModel and its instance
+        let vm = null
+        if (viewModelName === 'default') {
+          vm = riveInstance.defaultViewModel?.()
+        } else {
+          vm = riveInstance.viewModelByName?.(viewModelName)
+        }
+
+        if (vm) {
+          // Get default instance
+          const instance = vm.defaultInstance?.() || vm.instance?.()
+          if (instance) {
+            // Try different methods to set the value
+            if (typeof instance.setNumberValue === 'function' && typeof value === 'number') {
+              instance.setNumberValue(propName, value)
+              console.log('Set number value:', propName, value)
+            } else if (typeof instance.setStringValue === 'function' && typeof value === 'string') {
+              instance.setStringValue(propName, value)
+              console.log('Set string value:', propName, value)
+            } else if (typeof instance.setBooleanValue === 'function' && typeof value === 'boolean') {
+              instance.setBooleanValue(propName, value)
+              console.log('Set boolean value:', propName, value)
+            } else if (typeof instance.number === 'function' && typeof value === 'number') {
+              // Alternative API: instance.number(propName).value = value
+              const prop = instance.number(propName)
+              if (prop) prop.value = value
+              console.log('Set number via property:', propName, value)
+            } else {
+              console.log('No suitable setter found, trying direct assignment')
+              instance[propName] = value
+            }
+          }
+        }
+
+        // Also try viewModelInstance from hook
+        if (viewModelInstance) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const vmi = viewModelInstance as any
+          if (typeof vmi.number === 'function' && typeof value === 'number') {
+            const prop = vmi.number(propName)
+            if (prop) {
+              prop.value = value
+              console.log('Set via viewModelInstance.number:', propName, value)
+            }
+          }
+        }
+
+        setViewModelProps((prev) =>
+          prev.map((p) => (p.name === name ? { ...p, value } : p))
+        )
+        console.log('Updated ViewModel property:', name, value)
+        toast.success(`Updated: ${propName} = ${value}`)
+      } catch (error) {
+        console.error('Failed to update ViewModel property:', error)
+        toast.error(`Failed to update property: ${name}`)
+      }
+    },
+    [rive, viewModelInstance]
+  )
+
+  // Helper functions
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' bytes'
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
+    else return (bytes / 1048576).toFixed(1) + ' MB'
   }
 
+  const load = (file: File) => {
+    setFilename(file.name)
+    setFileSize(formatFileSize(file.size))
+    setStatus({ current: PlayerState.Loading })
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setFileBuffer(reader.result as ArrayBuffer)
+    }
+    reader.onerror = () => {
+      toast.error('Failed to read file')
+      setStatus({ current: PlayerState.Error, error: 'Failed to read file' })
+    }
+    reader.readAsArrayBuffer(file)
+    sendGAEvent('event', 'upload', { filename: file.name, fileSize: file.size })
+  }
+
+  const reset = () => {
+    setIsPlaying(true)
+    setFilename(null)
+    setFileSize(null)
+    setFileBuffer(null)
+    setAnimationList(null)
+    setStateMachineList(null)
+    setStateMachineInputs([])
+    setTextRuns([])
+    setRiveEvents([])
+    setViewModelProps([])
+    setPerformanceStats({ fps: 0, frameTime: 0, lastAdvanceTime: 0 })
+    frameCountRef.current = 0
+    lastFpsUpdateRef.current = performance.now()
+    setStatus({ current: PlayerState.Idle })
+  }
+
+  const togglePlayback = () => {
+    if (!rive) return
+    if (isPlaying) {
+      rive.pause()
+    } else {
+      rive.play()
+    }
+  }
+
+  const setControllerState = (state: string) => {
+    if (state !== 'animations' && state !== 'state-machines') return
+    setController({
+      ...controller,
+      active: state === 'animations' ? 'animations' : 'state-machines',
+    })
+    if (state === 'animations' && animationList) {
+      setActiveAnimation(animationList.active)
+    } else if (state === 'state-machines' && stateMachineList) {
+      setActiveStateMachine(stateMachineList.active)
+    }
+  }
+
+  const setActiveAnimation = (animation: string) => {
+    if (!rive || !animationList) return
+    rive.stop(animationList.active)
+    setAnimationList({ ...animationList, active: animation })
+    rive.play(animation)
+  }
+
+  const setActiveStateMachine = (stateMachine: string) => {
+    if (!rive || !stateMachineList) return
+    rive.stop(stateMachineList.active)
+    setStateMachineList({ ...stateMachineList, active: stateMachine })
+    rive.play(stateMachine)
+    const inputs = rive.stateMachineInputs(stateMachine)
+    if (inputs) setStateMachineInputs(inputs)
+  }
+
+  // Drag and drop handlers
   const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
     setStatus({ ...status, hovering: true })
     e.preventDefault()
@@ -449,21 +482,16 @@ export default function Home() {
   }
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     setStatus({ ...status, hovering: false })
-    load(e.dataTransfer.files[0])
+    const files = e.dataTransfer.files
+    if (files && files[0]) {
+      load(files[0])
+    }
     e.preventDefault()
     e.stopPropagation()
   }
 
-  const clearCanvas = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    riveAnimation?.stop()
-    const ctx = canvas.getContext('2d', { alpha: false })
-    ctx!.clearRect(0, 0, canvas.width, canvas.height)
-  }
-
   const shouldDisplayCanvas = () =>
-    [PlayerState.Active, PlayerState.Loading].includes(status.current)
+    [PlayerState.Active, PlayerState.Loading].includes(status.current) && fileBuffer !== null
 
   return (
     <>
@@ -527,9 +555,15 @@ export default function Home() {
                     {filename ? (
                       <span>
                         {filename}{' '}
-                        <span className='text-muted-foreground'>
-                          ({fileSize})
-                        </span>
+                        <span className='text-muted-foreground'>({fileSize})</span>
+                        <Button
+                          variant='link'
+                          size='sm'
+                          className='ml-2 h-auto p-0'
+                          onClick={reset}
+                        >
+                          Reset
+                        </Button>
                       </span>
                     ) : (
                       'Choose a file to get started.'
@@ -551,13 +585,9 @@ export default function Home() {
                     onDragEnter={handleDragEnter}
                     onDragLeave={handleDragLeave}
                   >
-                    <canvas
-                      ref={canvasRef}
-                      className='absolute inset-0 w-full h-full'
-                      style={{
-                        display: shouldDisplayCanvas() ? 'block' : 'none',
-                      }}
-                    />
+                    {shouldDisplayCanvas() && RiveComponent && (
+                      <RiveComponent className='absolute inset-0 w-full h-full' />
+                    )}
                     <div
                       className='absolute inset-0 flex flex-col items-center justify-center gap-4'
                       style={{
@@ -576,7 +606,7 @@ export default function Home() {
                         ref={inputRef}
                         onChange={(e) => {
                           const files = e.target.files
-                          if (files) load(files[0])
+                          if (files && files[0]) load(files[0])
                         }}
                       />
                     </div>
@@ -652,14 +682,17 @@ export default function Home() {
               <TextRunsCard
                 textRuns={textRuns}
                 setTextRuns={setTextRuns}
-                riveAnimation={riveAnimation}
+                riveAnimation={rive}
                 updateTextRun={updateTextRun}
               />
               <EventsCard
                 riveEvents={riveEvents}
                 setRiveEvents={setRiveEvents}
               />
-              <DataBindingCard viewModelProps={viewModelProps} />
+              <DataBindingCard
+                viewModelProps={viewModelProps}
+                updateViewModelProperty={updateViewModelProperty}
+              />
             </div>
           </div>
         </div>

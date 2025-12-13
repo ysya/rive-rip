@@ -55,7 +55,7 @@ export enum PlayerError {
 export type Status = {
   current: PlayerState
   hovering?: boolean
-  error?: PlayerError | null
+  error?: PlayerError | string | null
 }
 
 export interface RiveContextValue {

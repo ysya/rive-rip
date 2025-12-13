@@ -21,9 +21,21 @@ import { ViewModelProperty } from './types'
 
 interface DataBindingCardProps {
   viewModelProps: ViewModelProperty[]
+  updateViewModelProperty?: (name: string, value: unknown) => void
 }
 
-export function DataBindingCard({ viewModelProps }: DataBindingCardProps) {
+export function DataBindingCard({
+  viewModelProps,
+  updateViewModelProperty,
+}: DataBindingCardProps) {
+  const handleUpdate = (name: string, value: unknown) => {
+    if (updateViewModelProperty) {
+      updateViewModelProperty(name, value)
+    } else {
+      console.log('Update property:', name, value)
+    }
+  }
+
   return (
     <Card className='w-full'>
       <CardHeader>
@@ -33,7 +45,8 @@ export function DataBindingCard({ viewModelProps }: DataBindingCardProps) {
       <CardContent>
         {viewModelProps.length === 0 ? (
           <p className='text-sm text-muted-foreground'>
-            No ViewModel properties found. Data binding requires the .riv file to have a ViewModel configured in the Rive editor, and needs <code className='text-xs bg-muted px-1 py-0.5 rounded'>@rive-app/react-webgl2</code> for full support.
+            No ViewModel properties found. Data binding requires the .riv file
+            to have a ViewModel configured in the Rive editor.
           </p>
         ) : (
           <div className='flex flex-col gap-3'>
@@ -41,7 +54,10 @@ export function DataBindingCard({ viewModelProps }: DataBindingCardProps) {
               Found {viewModelProps.length} properties:
             </p>
             {viewModelProps.map((prop) => (
-              <div key={prop.name} className='flex flex-col gap-1 p-2 bg-muted/50 rounded'>
+              <div
+                key={prop.name}
+                className='flex flex-col gap-1 p-2 bg-muted/50 rounded'
+              >
                 <div className='flex items-center gap-2 flex-wrap'>
                   <code className='text-sm font-mono'>{prop.name}</code>
                   <span className='text-xs px-1.5 py-0.5 bg-primary/20 text-primary rounded'>
@@ -51,9 +67,7 @@ export function DataBindingCard({ viewModelProps }: DataBindingCardProps) {
                 {prop.type === 'boolean' && (
                   <Switch
                     checked={prop.value as boolean}
-                    onCheckedChange={(value) => {
-                      console.log('Update boolean:', prop.name, value)
-                    }}
+                    onCheckedChange={(value) => handleUpdate(prop.name, value)}
                   />
                 )}
                 {prop.type === 'string' && (
@@ -61,9 +75,7 @@ export function DataBindingCard({ viewModelProps }: DataBindingCardProps) {
                     type='text'
                     placeholder='Enter string value'
                     defaultValue={prop.value as string}
-                    onChange={(e) => {
-                      console.log('Update string:', prop.name, e.target.value)
-                    }}
+                    onChange={(e) => handleUpdate(prop.name, e.target.value)}
                   />
                 )}
                 {prop.type === 'number' && (
@@ -71,24 +83,22 @@ export function DataBindingCard({ viewModelProps }: DataBindingCardProps) {
                     type='number'
                     placeholder='Enter number'
                     defaultValue={prop.value as number}
-                    onChange={(e) => {
-                      console.log('Update number:', prop.name, e.target.value)
-                    }}
+                    onChange={(e) =>
+                      handleUpdate(prop.name, parseFloat(e.target.value))
+                    }
                   />
                 )}
                 {prop.type === 'trigger' && (
                   <Button
                     size='sm'
                     variant='outline'
-                    onClick={() => {
-                      console.log('Fire trigger:', prop.name)
-                    }}
+                    onClick={() => handleUpdate(prop.name, true)}
                   >
                     Fire Trigger
                   </Button>
                 )}
                 {prop.type === 'enum' && prop.enumValues && (
-                  <Select>
+                  <Select onValueChange={(value) => handleUpdate(prop.name, value)}>
                     <SelectTrigger>
                       <SelectValue placeholder='Select value' />
                     </SelectTrigger>
