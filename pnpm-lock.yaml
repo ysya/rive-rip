@@ -20,9 +20,6 @@ importers:
       '@radix-ui/react-select':
         specifier: ^2.2.6
         version: 2.2.6(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-separator':
-        specifier: ^1.1.8
-        version: 1.1.8(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@radix-ui/react-slot':
         specifier: ^1.2.4
         version: 1.2.4(@types/react@19.2.7)(react@19.2.3)
@@ -50,9 +47,6 @@ importers:
       next:
         specifier: ^16.0.10
         version: 16.0.10(@babel/core@7.28.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      next-sitemap:
-        specifier: ^4.2.3
-        version: 4.2.3(next@16.0.10(@babel/core@7.28.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))
       react:
         specifier: ^19.2.3
         version: 19.2.3
@@ -166,9 +160,6 @@ packages:
   '@babel/types@7.28.5':
     resolution: {integrity: sha512-qQ5m48eI/MFLQ5PxQj4PFaprjyCTLI37ElWMmNs0K8Lk3dVeOdNpB3ks8jc7yM5CDmVC73eMVk/trk3fgmrUpA==}
     engines: {node: '>=6.9.0'}
-
-  '@corex/deepmerge@4.0.43':
-    resolution: {integrity: sha512-N8uEMrMPL0cu/bdboEWpQYb/0i2K5Qn8eCsxzOmxSggJbbQte7ljMRoXm917AbntqTGOzdTu+vP3KOOzoC70HQ==}
 
   '@emnapi/core@1.7.1':
     resolution: {integrity: sha512-o1uhUASyo921r2XtHYOHy7gdkGLge8ghBEQHMWmyJFoXlpU58kIrhhN3w26lpQb6dspetweapMn2CSNwQ8I4wg==}
@@ -403,9 +394,6 @@ packages:
 
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
-
-  '@next/env@13.5.11':
-    resolution: {integrity: sha512-fbb2C7HChgM7CemdCY+y3N1n8pcTKdqtQLbC7/EQtPdLvlMUT9JX/dBYl8MMZAtYG4uVMyPFHXckb68q/NRwqg==}
 
   '@next/env@16.0.10':
     resolution: {integrity: sha512-8tuaQkyDVgeONQ1MeT9Mkk8pQmZapMKFh5B+OrFUlG3rVmYTXcXlBetBgTurKXGaIZvkoqRT9JL5K3phXcgang==}
@@ -684,19 +672,6 @@ packages:
 
   '@radix-ui/react-select@2.2.6':
     resolution: {integrity: sha512-I30RydO+bnn2PQztvo25tswPH+wFBjehVGtmagkU78yMdwTwVf12wnAOF+AeP8S2N8xD+5UPbGhkUfPyvT+mwQ==}
-    peerDependencies:
-      '@types/react': '*'
-      '@types/react-dom': '*'
-      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-      '@types/react-dom':
-        optional: true
-
-  '@radix-ui/react-separator@1.1.8':
-    resolution: {integrity: sha512-sDvqVY4itsKwwSMEe0jtKgfTh+72Sy3gPmQpjqcQneqQ4PFmr/1I0YA+2/puilhggCe2gJcx5EBAYFkWkdpa5g==}
     peerDependencies:
       '@types/react': '*'
       '@types/react-dom': '*'
@@ -1530,10 +1505,6 @@ packages:
     resolution: {integrity: sha512-kNFPyjhh5cKjrUltxs+wFx+ZkbRaxxmZ+X0ZU31SOsxCEtP9VPgtq2teZw1DebupL5GmDaNQ6yKMMVcM41iqDg==}
     engines: {node: '>=8.6.0'}
 
-  fast-glob@3.3.3:
-    resolution: {integrity: sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==}
-    engines: {node: '>=8.6.0'}
-
   fast-json-stable-stringify@2.1.0:
     resolution: {integrity: sha512-lhd/wF+Lk98HZoTCtlVraHtfh5XYijIjalXck7saUtuanSDyLMxnHhSXEDJqHxD7msR8D0uCmqlkwjCV8xvwHw==}
 
@@ -1986,13 +1957,6 @@ packages:
 
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
-
-  next-sitemap@4.2.3:
-    resolution: {integrity: sha512-vjdCxeDuWDzldhCnyFCQipw5bfpl4HmZA7uoo3GAaYGjGgfL4Cxb1CiztPuWGmS+auYs7/8OekRS8C2cjdAsjQ==}
-    engines: {node: '>=14.18'}
-    hasBin: true
-    peerDependencies:
-      next: '*'
 
   next@16.0.10:
     resolution: {integrity: sha512-RtWh5PUgI+vxlV3HdR+IfWA1UUHu0+Ram/JBO4vWB54cVPentCD0e+lxyAYEsDTqGGMg7qpjhKh6dc6aW7W/sA==}
@@ -2573,8 +2537,6 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@corex/deepmerge@4.0.43': {}
-
   '@emnapi/core@1.7.1':
     dependencies:
       '@emnapi/wasi-threads': 1.1.0
@@ -2787,8 +2749,6 @@ snapshots:
       '@emnapi/runtime': 1.7.1
       '@tybys/wasm-util': 0.10.1
     optional: true
-
-  '@next/env@13.5.11': {}
 
   '@next/env@16.0.10': {}
 
@@ -3031,15 +2991,6 @@ snapshots:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
       react-remove-scroll: 2.7.2(@types/react@19.2.7)(react@19.2.3)
-    optionalDependencies:
-      '@types/react': 19.2.7
-      '@types/react-dom': 19.2.3(@types/react@19.2.7)
-
-  '@radix-ui/react-separator@1.1.8(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      '@radix-ui/react-primitive': 2.1.4(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
     optionalDependencies:
       '@types/react': 19.2.7
       '@types/react-dom': 19.2.3(@types/react@19.2.7)
@@ -3978,14 +3929,6 @@ snapshots:
       merge2: 1.4.1
       micromatch: 4.0.8
 
-  fast-glob@3.3.3:
-    dependencies:
-      '@nodelib/fs.stat': 2.0.5
-      '@nodelib/fs.walk': 1.2.8
-      glob-parent: 5.1.2
-      merge2: 1.4.1
-      micromatch: 4.0.8
-
   fast-json-stable-stringify@2.1.0: {}
 
   fast-levenshtein@2.0.6: {}
@@ -4401,14 +4344,6 @@ snapshots:
   napi-postinstall@0.3.4: {}
 
   natural-compare@1.4.0: {}
-
-  next-sitemap@4.2.3(next@16.0.10(@babel/core@7.28.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)):
-    dependencies:
-      '@corex/deepmerge': 4.0.43
-      '@next/env': 13.5.11
-      fast-glob: 3.3.3
-      minimist: 1.2.8
-      next: 16.0.10(@babel/core@7.28.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
 
   next@16.0.10(@babel/core@7.28.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
