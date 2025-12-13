@@ -21,11 +21,8 @@ import {
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { Toaster, toast } from 'sonner'
 import { Upload } from 'lucide-react'
-import { LaptopIcon } from '@radix-ui/react-icons'
-import { ArrowRight } from 'lucide-react'
 import { sendGAEvent } from '@next/third-parties/google'
 
 // Import Rive components
@@ -501,19 +498,6 @@ export default function Home() {
           {/* Header */}
           <div className='relative flex w-full flex-col items-start'>
             <section className='mx-auto flex flex-col items-start gap-2 px-4 py-8 md:py-12 md:pb-8 lg:py-12 lg::pb-10 w-full'>
-              <a
-                className='group inline-flex items-center px-0.5 text-sm font-medium'
-                href='https://editor.rive.app/'
-                target='_blank'
-                rel='noopener noreferrer'
-              >
-                <LaptopIcon className='h-4 w-4' />
-                <Separator orientation='vertical' className='mx-2 h-4' />
-                <span className='underline-offset-4 group-hover:underline'>
-                  open rive editor
-                </span>
-                <ArrowRight className='h-4 w-4 ml-1' />
-              </a>
               <h1 className='text-3xl font-bold leading-tight tracking-tighter md:text-4xl lg:leading-[1.1] hidden md:block'>
                 Rive Web Runtime, Upgraded.
               </h1>
@@ -525,20 +509,11 @@ export default function Home() {
               </p>
               <div className='flex w-full items-center justify-start gap-2 py-2'>
                 <a
-                  href='https://github.com/albertcai101/rive-rip'
+                  href='https://github.com/ysya/rive-rip'
                   target='_blank'
                   rel='noopener noreferrer'
                 >
-                  <Button size='xs'>Star on GitHub</Button>
-                </a>
-                <a
-                  href='https://rive.app/preview/'
-                  target='_blank'
-                  rel='noopener noreferrer'
-                >
-                  <Button size='xs' variant='ghost'>
-                    Use Old Rive Preview
-                  </Button>
+                  <Button size='xs'>GitHub</Button>
                 </a>
               </div>
             </section>
@@ -702,14 +677,14 @@ export default function Home() {
       <footer className='py-6 md:px-8 md:py-0 font-[family-name:var(--font-geist-sans)]'>
         <div className='container px-8 mx-5 flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row'>
           <p className='text-balance text-center text-sm leading-loose text-muted-foreground md:text-left'>
-            Built by{' '}
+            Forked from{' '}
             <a
-              href='https://spellr.org'
+              href='https://github.com/albertcai101/rive-rip'
               target='_blank'
               rel='noopener noreferrer'
-              className='font_medium underline underline-offset-4'
+              className='font-medium underline underline-offset-4'
             >
-              spellr
+              albertcai101/rive-rip
             </a>
             . Made to simplify the handoff from animators to developers.
           </p>

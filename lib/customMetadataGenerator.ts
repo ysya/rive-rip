@@ -15,7 +15,7 @@ interface PageSEOProps {
 export function customMetadataGenerator({
     title,
     description = "Preview Rive animations and state machines in the browser.",
-    canonicalUrl = 'https://rive.rip/',
+    canonicalUrl = '/',
     ogType = 'website',
     keywords = [
         "rive web preview", 
@@ -37,7 +37,7 @@ export function customMetadataGenerator({
     ogImage = './ogimage.png',
     twitterCard = 'summary_large_image',
 }: PageSEOProps): Metadata {
-    const siteTitle = 'rive.rip';
+    const siteTitle = 'Rive Preview';
     const fullTitle = `${title} | ${siteTitle}`;
 
     return {

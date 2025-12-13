@@ -1,24 +1,24 @@
-# rive.rip
+# Rive Preview
 
-Visit at [rive.rip](https://rive.rip/).
+A better alternative to preview `.riv` files. Intended use is for teams, where developers and animators are different people. The common problem is that developers can't preview the state machine without Rive itself or the `.rev` file.
 
-A better alternative to preview `.riv` files, because [the official previewer](https://rive.app/preview/) is not good enough. Intended use is for teams, where developers and animators are different people. The common problem is that developers can't preview the state machine without Rive itself or the `.rev` file.
-
-Originally made for use internally at [Spellr](https://spellr.org/) to preview animations made by our animators.
+Forked from [albertcai101/rive-rip](https://github.com/albertcai101/rive-rip).
 
 ## Features
-1. Play Individual Animations (like the official previewer)
-2. Play with State Machines (new feature)
+1. Play Individual Animations
+2. Play with State Machines
+3. Edit Text Runs
+4. View Rive Events
+5. Data Binding / ViewModel support
+6. Performance stats (FPS)
 
-## Progress
-- [x] Install NextJS and Shadcn
-- [x] Create simple UI for uploading `.riv` file
-- [x] Printing out the content of the `.riv` file
-- [x] Display file size of `.riv` file
-- [x] Displaying file metadata (artboard names, state machine names)
-- [x] Handle file errors and unsupported files gracefully
-- [x] UI enhancements for better layout and resizing
-- [x] Preview state machine interactions
-- [x] Finalize full support for boolean, trigger, and number inputs
-- [ ] Code snippets for `.riv` components
+## Development
 
+```bash
+pnpm install
+pnpm dev
+```
+
+## Deployment
+
+This project is configured to deploy to GitHub Pages via GitHub Actions.
