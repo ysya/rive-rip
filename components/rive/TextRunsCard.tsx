@@ -4,7 +4,6 @@ import { Rive } from '@rive-app/react-canvas'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -47,41 +46,42 @@ export function TextRunsCard({
 
   return (
     <Card className='w-full'>
-      <CardHeader>
-        <CardTitle>Text Runs</CardTitle>
-        <CardDescription>Edit text elements in the animation.</CardDescription>
+      <CardHeader className='pb-2'>
+        <CardTitle className='text-base'>Text Runs</CardTitle>
       </CardHeader>
       <CardContent>
         {textRuns.length === 0 ? (
-          <p className='text-sm text-muted-foreground'>
-            No text runs found. Text runs allow you to dynamically change text in your Rive animations.
+          <p className='text-xs text-muted-foreground'>
+            No text runs found.
           </p>
         ) : (
-          <div className='flex flex-col gap-3'>
+          <div className='flex flex-col gap-2 max-h-40 overflow-y-auto'>
             {textRuns.map((textRun) => (
-              <div key={textRun.name} className='flex flex-col gap-1'>
-                <Label htmlFor={`textrun-${textRun.name}`}>{textRun.name}</Label>
+              <div key={textRun.name} className='flex items-center gap-2'>
+                <Label htmlFor={`textrun-${textRun.name}`} className='text-xs font-mono min-w-0 truncate shrink-0 max-w-20' title={textRun.name}>
+                  {textRun.name}
+                </Label>
                 <Input
                   id={`textrun-${textRun.name}`}
                   type='text'
                   value={textRun.value}
                   onChange={(e) => updateTextRun(textRun.name, e.target.value)}
-                  placeholder={`Enter value for ${textRun.name}`}
+                  placeholder='Enter text'
+                  className='h-7 text-xs flex-1'
                 />
               </div>
             ))}
           </div>
         )}
-        <div className='mt-4'>
-          <h3 className='text-sm font-medium mb-2'>Add Custom Text Run</h3>
+        <div className='mt-3 pt-3 border-t'>
           <div className='flex gap-2'>
             <Input
               id='custom-textrun-name'
               type='text'
               placeholder='Text run name'
-              className='flex-1'
+              className='flex-1 h-7 text-xs'
             />
-            <Button size='sm' variant='outline' onClick={handleFindTextRun}>
+            <Button size='sm' variant='outline' onClick={handleFindTextRun} className='h-7 text-xs'>
               Find
             </Button>
           </div>

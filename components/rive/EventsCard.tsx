@@ -3,7 +3,6 @@
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -18,16 +17,15 @@ interface EventsCardProps {
 export function EventsCard({ riveEvents, setRiveEvents }: EventsCardProps) {
   return (
     <Card className='w-full'>
-      <CardHeader className='flex flex-row items-center justify-between'>
-        <div>
-          <CardTitle>Rive Events</CardTitle>
-          <CardDescription>Events triggered by the animation.</CardDescription>
+      <CardHeader className='pb-2'>
+        <div className='flex items-center justify-between'>
+          <CardTitle className='text-base'>Rive Events</CardTitle>
+          {riveEvents.length > 0 && (
+            <Button size='sm' variant='ghost' onClick={() => setRiveEvents([])} className='h-7 text-xs'>
+              Clear
+            </Button>
+          )}
         </div>
-        {riveEvents.length > 0 && (
-          <Button size='xs' variant='ghost' onClick={() => setRiveEvents([])}>
-            Clear
-          </Button>
-        )}
       </CardHeader>
       <CardContent>
         {riveEvents.length === 0 ? (

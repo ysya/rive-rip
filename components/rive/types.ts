@@ -14,9 +14,22 @@ export type RiveEvent = {
 
 export type ViewModelProperty = {
   name: string
-  type: 'boolean' | 'string' | 'number' | 'color' | 'trigger' | 'enum' | 'list'
+  type: 'boolean' | 'string' | 'number' | 'color' | 'trigger' | 'enum' | 'list' | 'artboard'
   value?: unknown
   enumValues?: string[]
+  colorValue?: { r: number; g: number; b: number; a: number }
+}
+
+export type ArtboardInfo = {
+  name: string
+  width: number
+  height: number
+}
+
+export type AssetInfo = {
+  name: string
+  type: 'image' | 'font' | 'audio' | 'unknown'
+  cdnUuid?: string
 }
 
 export type PerformanceStats = {

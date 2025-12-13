@@ -4,7 +4,6 @@ import { Fit, Alignment } from '@rive-app/react-canvas'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -17,6 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { BackgroundColor } from './types'
 
 const fitValues: (keyof typeof Fit)[] = [
   'Cover',
@@ -48,62 +49,75 @@ interface AlignFitIndex {
 interface LayoutCardProps {
   alignFitIndex: AlignFitIndex
   setAlignFitIndex: React.Dispatch<React.SetStateAction<AlignFitIndex>>
+  background: BackgroundColor
+  setBackground: (value: BackgroundColor) => void
 }
 
-export function LayoutCard({ alignFitIndex, setAlignFitIndex }: LayoutCardProps) {
+export function LayoutCard({ alignFitIndex, setAlignFitIndex, background, setBackground }: LayoutCardProps) {
   return (
-    <Card className='w-full sm:w-auto sm:min-w-60'>
-      <CardHeader>
-        <CardTitle>Layout</CardTitle>
-        <CardDescription>Adjust the layout of the animation.</CardDescription>
+    <Card className='w-full'>
+      <CardHeader className='pb-2'>
+        <CardTitle className='text-base'>Layout</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className='w-full'>
-          <div className='flex flex-row flex-wrap justify-between items-center gap-2 mb-2'>
-            <h2 className='text-lg font-medium pr-8'>Fit</h2>
-            <div className='w-auto min-w-40'>
-              <Select
-                value={fitValues[alignFitIndex.fit]}
-                onValueChange={(value) =>
-                  setAlignFitIndex({
-                    ...alignFitIndex,
-                    fit: fitValues.indexOf(value as keyof typeof Fit),
-                  })
-                }
-              >
-                <SelectTrigger className='w-full'>
-                  <SelectValue placeholder='Select Fit' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Available Fits</SelectLabel>
-                    {fitValues.map((fit) => (
-                      <SelectItem key={fit} value={fit}>
-                        {fit}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
+        <div className='flex flex-col gap-3'>
+          <div className='flex gap-2'>
+            <Select
+              value={fitValues[alignFitIndex.fit]}
+              onValueChange={(value) =>
+                setAlignFitIndex({
+                  ...alignFitIndex,
+                  fit: fitValues.indexOf(value as keyof typeof Fit),
+                })
+              }
+            >
+              <SelectTrigger className='flex-1'>
+                <SelectValue placeholder='Fit' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Fit</SelectLabel>
+                  {fitValues.map((fit) => (
+                    <SelectItem key={fit} value={fit}>
+                      {fit}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Select
+              value={background}
+              onValueChange={(value) => setBackground(value as BackgroundColor)}
+            >
+              <SelectTrigger className='w-24'>
+                <SelectValue placeholder='BG' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Background</SelectLabel>
+                  <SelectItem value='transparent'>Transparent</SelectItem>
+                  <SelectItem value='white'>White</SelectItem>
+                  <SelectItem value='black'>Black</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
-          <div className='flex flex-row justify-between flex-wrap'>
-            <h2 className='text-lg font-medium mt-4 pr-8'>Alignment</h2>
-            <div className='grid grid-rows-3 grid-cols-3 gap-2 mt-4 mb-2'>
-              {alignValues.map((_, index) => (
-                <button
-                  key={`btn_${index}`}
-                  onClick={() =>
-                    setAlignFitIndex({ ...alignFitIndex, alignment: index })
-                  }
-                  className={`w-9 h-9 ${
-                    alignFitIndex.alignment === index
-                      ? 'bg-foreground'
-                      : 'bg-muted'
-                  } hover:bg-secondary-foreground rounded-lg transition-colors`}
-                />
-              ))}
-            </div>
+          <div className='grid grid-rows-3 grid-cols-3 gap-1'>
+            {alignValues.map((_, index) => (
+              <Button
+                key={`btn_${index}`}
+                variant='ghost'
+                size='icon'
+                onClick={() =>
+                  setAlignFitIndex({ ...alignFitIndex, alignment: index })
+                }
+                className={`w-6 h-6 p-0 ${
+                  alignFitIndex.alignment === index
+                    ? 'bg-foreground hover:bg-foreground'
+                    : 'bg-muted hover:bg-secondary-foreground'
+                }`}
+              />
+            ))}
           </div>
         </div>
       </CardContent>

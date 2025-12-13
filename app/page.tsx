@@ -21,8 +21,21 @@ import {
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Toaster, toast } from 'sonner'
-import { Upload } from 'lucide-react'
+import { Upload, Download, Camera, Settings } from 'lucide-react'
 import { sendGAEvent } from '@next/third-parties/google'
 
 // Import Rive components
@@ -37,20 +50,21 @@ import {
   RiveController,
   PlayerState,
   Status,
+  ArtboardInfo,
+  AssetInfo,
 } from '@/components/rive'
-import { PerformanceCard } from '@/components/rive/PerformanceCard'
-import { SettingsCard } from '@/components/rive/SettingsCard'
 import { TextRunsCard } from '@/components/rive/TextRunsCard'
 import { EventsCard } from '@/components/rive/EventsCard'
 import { DataBindingCard } from '@/components/rive/DataBindingCard'
 import { ControlsCard } from '@/components/rive/ControlsCard'
-import { AppearanceCard } from '@/components/rive/AppearanceCard'
 import {
   LayoutCard,
   fitValues,
   alignValues,
   AlignFitIndex,
 } from '@/components/rive/LayoutCard'
+import { ArtboardCard } from '@/components/rive/ArtboardCard'
+import { AssetsCard } from '@/components/rive/AssetsCard'
 
 export default function Home() {
   const previewRef = useRef<HTMLDivElement>(null)
@@ -76,7 +90,7 @@ export default function Home() {
   const [background, setBackground] = useState<BackgroundColor>('black')
   const [alignFitIndex, setAlignFitIndex] = useState<AlignFitIndex>({
     alignment: alignValues.indexOf('Center'),
-    fit: fitValues.indexOf('Cover'),
+    fit: fitValues.indexOf('Contain'),
   })
 
   // New feature states
@@ -90,6 +104,9 @@ export default function Home() {
   })
   const [isTouchScrollEnabled, setIsTouchScrollEnabled] = useState<boolean>(true)
   const [autoHandleEvents, setAutoHandleEvents] = useState<boolean>(true)
+  const [artboards, setArtboards] = useState<ArtboardInfo[]>([])
+  const [activeArtboard, setActiveArtboard] = useState<string | null>(null)
+  const [assets, setAssets] = useState<AssetInfo[]>([])
   const frameCountRef = useRef<number>(0)
   const lastFpsUpdateRef = useRef<number>(performance.now())
 
@@ -198,6 +215,11 @@ export default function Home() {
 
     // Get ViewModel properties
     getViewModelProperties()
+
+    // Get artboards and assets
+    getArtboards()
+    getAssets()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rive])
 
   // Update layout when alignFitIndex changes
@@ -287,6 +309,161 @@ export default function Home() {
       setViewModelProps([])
     }
   }, [rive])
+
+  // Get artboards from Rive file
+  const getArtboards = useCallback(() => {
+    if (!rive) return
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const riveInstance = rive as any
+      const artboardList: ArtboardInfo[] = []
+
+      // Try to get artboard names from the file
+      if (typeof riveInstance.artboardNames === 'object' && Array.isArray(riveInstance.artboardNames)) {
+        riveInstance.artboardNames.forEach((name: string) => {
+          artboardList.push({
+            name,
+            width: 0,
+            height: 0,
+          })
+        })
+      }
+
+      // Get current artboard info
+      const currentArtboard = riveInstance.artboard
+      if (currentArtboard) {
+        const name = currentArtboard.name || 'Default'
+        const existing = artboardList.find((a) => a.name === name)
+        if (existing) {
+          existing.width = currentArtboard.width || 0
+          existing.height = currentArtboard.height || 0
+        } else {
+          artboardList.push({
+            name,
+            width: currentArtboard.width || 0,
+            height: currentArtboard.height || 0,
+          })
+        }
+        setActiveArtboard(name)
+      }
+
+      setArtboards(artboardList)
+      if (artboardList.length > 0) {
+        console.log('Found artboards:', artboardList)
+      }
+    } catch (error) {
+      console.log('Artboards not available:', error)
+      setArtboards([])
+    }
+  }, [rive])
+
+  // Get assets from Rive file
+  const getAssets = useCallback(() => {
+    if (!rive) return
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const riveInstance = rive as any
+      const assetList: AssetInfo[] = []
+
+      // Try to get assets from the file
+      if (typeof riveInstance.assetCount === 'number') {
+        for (let i = 0; i < riveInstance.assetCount; i++) {
+          const asset = riveInstance.assetByIndex?.(i)
+          if (asset) {
+            let assetType: AssetInfo['type'] = 'unknown'
+            if (asset.isImage || asset.type === 'image') assetType = 'image'
+            else if (asset.isFont || asset.type === 'font') assetType = 'font'
+            else if (asset.isAudio || asset.type === 'audio') assetType = 'audio'
+
+            assetList.push({
+              name: asset.name || `Asset ${i}`,
+              type: assetType,
+              cdnUuid: asset.cdnUuid,
+            })
+          }
+        }
+      }
+
+      setAssets(assetList)
+      if (assetList.length > 0) {
+        console.log('Found assets:', assetList)
+      }
+    } catch (error) {
+      console.log('Assets not available:', error)
+      setAssets([])
+    }
+  }, [rive])
+
+  // Select artboard
+  const selectArtboard = useCallback(
+    (name: string) => {
+      if (!rive) return
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const riveInstance = rive as any
+        if (typeof riveInstance.load === 'function' && fileBuffer) {
+          // Reload with new artboard
+          riveInstance.load({
+            buffer: fileBuffer,
+            artboard: name,
+            autoplay: true,
+          })
+          setActiveArtboard(name)
+          toast.success(`Switched to artboard: ${name}`)
+        }
+      } catch (error) {
+        console.error('Failed to select artboard:', error)
+        toast.error(`Failed to switch artboard: ${name}`)
+      }
+    },
+    [rive, fileBuffer]
+  )
+
+  // Update color property in ViewModel
+  const updateColorProperty = useCallback(
+    (name: string, r: number, g: number, b: number, a: number) => {
+      if (!rive) return
+      try {
+        const parts = name.split('/')
+        const propName = parts.pop() || name
+        const viewModelName = parts.join('/') || 'default'
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const riveInstance = rive as any
+
+        let vm = null
+        if (viewModelName === 'default') {
+          vm = riveInstance.defaultViewModel?.()
+        } else {
+          vm = riveInstance.viewModelByName?.(viewModelName)
+        }
+
+        if (vm) {
+          const instance = vm.defaultInstance?.() || vm.instance?.()
+          if (instance && typeof instance.color === 'function') {
+            const colorProp = instance.color(propName)
+            if (colorProp) {
+              // Set color value (RGBA format varies by Rive version)
+              colorProp.value = { r, g, b, a }
+              console.log('Set color:', propName, { r, g, b, a })
+            }
+          }
+        }
+
+        // Update state
+        setViewModelProps((prev) =>
+          prev.map((p) =>
+            p.name === name ? { ...p, colorValue: { r, g, b, a } } : p
+          )
+        )
+        toast.success(`Updated color: ${propName}`)
+      } catch (error) {
+        console.error('Failed to update color property:', error)
+        toast.error(`Failed to update color: ${name}`)
+      }
+    },
+    [rive]
+  )
 
   // Update text run value
   const updateTextRun = useCallback(
@@ -417,6 +594,9 @@ export default function Home() {
     setRiveEvents([])
     setViewModelProps([])
     setPerformanceStats({ fps: 0, frameTime: 0, lastAdvanceTime: 0 })
+    setArtboards([])
+    setActiveArtboard(null)
+    setAssets([])
     frameCountRef.current = 0
     lastFpsUpdateRef.current = performance.now()
     setStatus({ current: PlayerState.Idle })
@@ -490,6 +670,54 @@ export default function Home() {
   const shouldDisplayCanvas = () =>
     [PlayerState.Active, PlayerState.Loading].includes(status.current) && fileBuffer !== null
 
+  // Export functions
+  const exportToPNG = useCallback(() => {
+    if (!previewRef.current) {
+      toast.error('No canvas available')
+      return
+    }
+    const canvas = previewRef.current.querySelector('canvas')
+    if (!canvas) {
+      toast.error('No canvas found')
+      return
+    }
+    try {
+      const dataUrl = canvas.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.download = filename ? `${filename.replace('.riv', '')}.png` : 'rive-export.png'
+      link.href = dataUrl
+      link.click()
+      toast.success('PNG exported successfully')
+    } catch (error) {
+      console.error('Export failed:', error)
+      toast.error('Failed to export PNG')
+    }
+  }, [filename])
+
+  const copyToClipboard = useCallback(async () => {
+    if (!previewRef.current) {
+      toast.error('No canvas available')
+      return
+    }
+    const canvas = previewRef.current.querySelector('canvas')
+    if (!canvas) {
+      toast.error('No canvas found')
+      return
+    }
+    try {
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png')
+      })
+      if (blob) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+        toast.success('Copied to clipboard')
+      }
+    } catch (error) {
+      console.error('Copy failed:', error)
+      toast.error('Failed to copy to clipboard')
+    }
+  }, [])
+
   return (
     <>
       <main className='flex-1 font-[family-name:var(--font-geist-sans)]'>
@@ -525,7 +753,92 @@ export default function Home() {
             <div className='flex flex-col gap-8 min-w-0'>
               <Card className='min-w-0 overflow-hidden'>
                 <CardHeader>
-                  <CardTitle>Preview</CardTitle>
+                  <div className='flex items-center justify-between'>
+                    <div className='flex items-center gap-3'>
+                      <CardTitle>Preview</CardTitle>
+                      {filename && status.current === PlayerState.Active && (
+                        <span className={`text-xs font-mono ${
+                          performanceStats.fps >= 50 ? 'text-green-500' :
+                          performanceStats.fps >= 30 ? 'text-yellow-500' : 'text-red-500'
+                        }`}>
+                          {performanceStats.fps} FPS
+                        </span>
+                      )}
+                    </div>
+                    <TooltipProvider>
+                      <div className='flex gap-1'>
+                        <Popover>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <PopoverTrigger asChild>
+                                <Button size='sm' variant='outline'>
+                                  <Settings className='w-4 h-4' />
+                                </Button>
+                              </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Runtime Settings</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <PopoverContent className='w-64' align='end'>
+                            <div className='flex flex-col gap-3'>
+                              <div className='flex items-center justify-between'>
+                                <Label htmlFor='touch-scroll' className='text-sm'>Touch Scroll</Label>
+                                <Switch
+                                  id='touch-scroll'
+                                  checked={isTouchScrollEnabled}
+                                  onCheckedChange={setIsTouchScrollEnabled}
+                                />
+                              </div>
+                              <div className='flex items-center justify-between'>
+                                <Label htmlFor='auto-events' className='text-sm'>Auto Events</Label>
+                                <Switch
+                                  id='auto-events'
+                                  checked={autoHandleEvents}
+                                  onCheckedChange={setAutoHandleEvents}
+                                />
+                              </div>
+                              <p className='text-xs text-muted-foreground'>
+                                Settings apply on next file load.
+                              </p>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        {filename && (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  onClick={exportToPNG}
+                                >
+                                  <Download className='w-4 h-4' />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Download PNG</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  onClick={copyToClipboard}
+                                >
+                                  <Camera className='w-4 h-4' />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Copy to Clipboard</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </>
+                        )}
+                      </div>
+                    </TooltipProvider>
+                  </div>
                   <CardDescription>
                     {filename ? (
                       <span>
@@ -548,7 +861,7 @@ export default function Home() {
                 <CardContent>
                   <div
                     ref={previewRef}
-                    className={`relative w-full h-100 md:h-125 lg:h-150 rounded-lg overflow-hidden ${
+                    className={`relative w-full h-64 md:h-80 lg:h-96 rounded-lg overflow-hidden ${
                       background === 'white'
                         ? 'bg-white'
                         : background === 'black'
@@ -604,31 +917,46 @@ export default function Home() {
                 togglePlayback={togglePlayback}
                 status={status}
               />
-              <PerformanceCard
-                performanceStats={performanceStats}
-                status={status}
-                isPlaying={isPlaying}
-              />
-              <SettingsCard
-                isTouchScrollEnabled={isTouchScrollEnabled}
-                setIsTouchScrollEnabled={setIsTouchScrollEnabled}
-                autoHandleEvents={autoHandleEvents}
-                setAutoHandleEvents={setAutoHandleEvents}
-              />
             </div>
 
-            {/* Bottom Row */}
-            <div className='col-span-1 lg:col-span-2 flex flex-wrap gap-4'>
-              <AppearanceCard
-                background={background}
-                setBackground={setBackground}
-              />
+            {/* Settings Row */}
+            <div className='col-span-1 lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4'>
               <LayoutCard
                 alignFitIndex={alignFitIndex}
                 setAlignFitIndex={setAlignFitIndex}
+                background={background}
+                setBackground={setBackground}
               />
-              {/* Code Snippets Card */}
-              <Card className='w-full sm:flex-1 min-w-0'>
+              <ArtboardCard
+                artboards={artboards}
+                activeArtboard={activeArtboard}
+                onSelectArtboard={selectArtboard}
+              />
+              <AssetsCard assets={assets} />
+            </div>
+
+            {/* Features Row */}
+            <div className='col-span-1 lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4'>
+              <TextRunsCard
+                textRuns={textRuns}
+                setTextRuns={setTextRuns}
+                riveAnimation={rive}
+                updateTextRun={updateTextRun}
+              />
+              <EventsCard
+                riveEvents={riveEvents}
+                setRiveEvents={setRiveEvents}
+              />
+              <DataBindingCard
+                viewModelProps={viewModelProps}
+                updateViewModelProperty={updateViewModelProperty}
+                updateColorProperty={updateColorProperty}
+              />
+            </div>
+
+            {/* Code Snippets */}
+            <div className='col-span-1 lg:col-span-2'>
+              <Card className='w-full'>
                 <CardHeader>
                   <CardTitle>Code Snippets</CardTitle>
                   <CardDescription>Copy code for your project.</CardDescription>
@@ -650,24 +978,6 @@ export default function Home() {
                   </Tabs>
                 </CardContent>
               </Card>
-            </div>
-
-            {/* New Features Row */}
-            <div className='col-span-1 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-              <TextRunsCard
-                textRuns={textRuns}
-                setTextRuns={setTextRuns}
-                riveAnimation={rive}
-                updateTextRun={updateTextRun}
-              />
-              <EventsCard
-                riveEvents={riveEvents}
-                setRiveEvents={setRiveEvents}
-              />
-              <DataBindingCard
-                viewModelProps={viewModelProps}
-                updateViewModelProperty={updateViewModelProperty}
-              />
             </div>
           </div>
         </div>
