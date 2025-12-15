@@ -613,27 +613,40 @@ export default function Home() {
 
   const setControllerState = (state: string) => {
     if (state !== 'animations' && state !== 'state-machines') return
+
+    // Stop all current playback before switching modes
+    if (rive) {
+      rive.stop()
+    }
+
     setController({
       ...controller,
       active: state === 'animations' ? 'animations' : 'state-machines',
     })
+
     if (state === 'animations' && animationList) {
-      setActiveAnimation(animationList.active)
+      // Play the active animation in animations mode
+      rive?.play(animationList.active)
     } else if (state === 'state-machines' && stateMachineList) {
-      setActiveStateMachine(stateMachineList.active)
+      // Play the active state machine
+      rive?.play(stateMachineList.active)
+      const inputs = rive?.stateMachineInputs(stateMachineList.active)
+      if (inputs) setStateMachineInputs(inputs)
     }
   }
 
   const setActiveAnimation = (animation: string) => {
     if (!rive || !animationList) return
-    rive.stop(animationList.active)
+    // Stop all animations before playing a new one
+    rive.stop()
     setAnimationList({ ...animationList, active: animation })
     rive.play(animation)
   }
 
   const setActiveStateMachine = (stateMachine: string) => {
     if (!rive || !stateMachineList) return
-    rive.stop(stateMachineList.active)
+    // Stop all before switching state machines
+    rive.stop()
     setStateMachineList({ ...stateMachineList, active: stateMachine })
     rive.play(stateMachine)
     const inputs = rive.stateMachineInputs(stateMachine)
