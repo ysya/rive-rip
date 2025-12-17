@@ -155,25 +155,35 @@ function PropertyRow({
     )
   }
 
-  if (prop.type === 'enum' && prop.enumValues) {
+  if (prop.type === 'enum') {
+    const hasEnumValues = prop.enumValues && prop.enumValues.length > 0
     return (
       <div className='flex items-center justify-between gap-2 py-1.5 px-2 bg-muted/30 rounded text-xs'>
         <div className='flex items-center gap-2 min-w-0'>
           <span className='font-mono truncate' title={prop.name}>{propName}</span>
           <span className='px-1 py-0.5 bg-purple-500/20 text-purple-500 rounded text-[10px]'>enum</span>
         </div>
-        <Select onValueChange={(value) => onUpdate(prop.name, value)}>
-          <SelectTrigger className='w-24 h-6 text-xs'>
-            <SelectValue placeholder='Select' />
-          </SelectTrigger>
-          <SelectContent>
-            {prop.enumValues.map((val) => (
-              <SelectItem key={val} value={val} className='text-xs'>
-                {val}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {hasEnumValues ? (
+          <Select
+            value={prop.value as string | undefined}
+            onValueChange={(value) => onUpdate(prop.name, value)}
+          >
+            <SelectTrigger className='w-28 h-6 text-xs'>
+              <SelectValue placeholder='Select...' />
+            </SelectTrigger>
+            <SelectContent>
+              {prop.enumValues!.map((val) => (
+                <SelectItem key={val} value={val} className='text-xs'>
+                  {val}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className='text-muted-foreground text-[10px]'>
+            {prop.value ? String(prop.value) : 'No options'}
+          </span>
+        )}
       </div>
     )
   }

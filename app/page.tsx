@@ -279,18 +279,91 @@ export default function Home() {
       const riveInstance = rive as any
       const props: ViewModelProperty[] = []
 
+      // Helper function to extract enum values from a property
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const getEnumValues = (prop: any, instance: any): string[] => {
+        try {
+          // Try to get enum values from the property itself
+          if (prop.enumValues && Array.isArray(prop.enumValues)) {
+            return prop.enumValues
+          }
+          // Try to get from instance's enum property
+          if (instance && typeof instance.getEnumProperty === 'function') {
+            const enumProp = instance.getEnumProperty(prop.name)
+            if (enumProp && enumProp.enumValues) {
+              return enumProp.enumValues
+            }
+            // Alternative: enumValues might be called 'values'
+            if (enumProp && enumProp.values) {
+              return enumProp.values
+            }
+          }
+          // Try accessing enum method on instance
+          if (instance && typeof instance.enum === 'function') {
+            const enumProp = instance.enum(prop.name)
+            if (enumProp) {
+              if (enumProp.enumValues) return enumProp.enumValues
+              if (enumProp.values) return enumProp.values
+            }
+          }
+        } catch {
+          // Ignore errors
+        }
+        return []
+      }
+
+      // Helper function to get current enum value
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const getEnumCurrentValue = (prop: any, instance: any): string | undefined => {
+        try {
+          if (instance && typeof instance.getEnumProperty === 'function') {
+            const enumProp = instance.getEnumProperty(prop.name)
+            if (enumProp && enumProp.value !== undefined) {
+              return enumProp.value
+            }
+          }
+          if (instance && typeof instance.enum === 'function') {
+            const enumProp = instance.enum(prop.name)
+            if (enumProp && enumProp.value !== undefined) {
+              return enumProp.value
+            }
+          }
+        } catch {
+          // Ignore errors
+        }
+        return undefined
+      }
+
+      // Helper to create property object with enum support
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const createPropertyObject = (prop: any, vmName: string, instance: any): ViewModelProperty => {
+        const propType = prop.type || 'unknown'
+        const propObj: ViewModelProperty = {
+          name: `${vmName}/${prop.name}`,
+          type: propType,
+          value: undefined,
+        }
+
+        // If it's an enum type, get the available values
+        if (propType === 'enum' || propType === 'enumType') {
+          propObj.type = 'enum'
+          propObj.enumValues = getEnumValues(prop, instance)
+          propObj.value = getEnumCurrentValue(prop, instance)
+        }
+
+        return propObj
+      }
+
       // Check viewModelCount and iterate through all ViewModels
       if (typeof riveInstance.viewModelCount === 'number' && riveInstance.viewModelCount > 0) {
         for (let i = 0; i < riveInstance.viewModelCount; i++) {
           const vm = riveInstance.viewModelByIndex(i)
           if (vm && vm.properties) {
+            // Try to get the default instance to read enum values
+            const instance = vm.defaultInstance?.() || vm.instance?.()
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             vm.properties.forEach((prop: any) => {
-              props.push({
-                name: `${vm.name || `ViewModel${i}`}/${prop.name}`,
-                type: prop.type || 'unknown',
-                value: undefined,
-              })
+              props.push(createPropertyObject(prop, vm.name || `ViewModel${i}`, instance))
             })
           }
         }
@@ -300,17 +373,22 @@ export default function Home() {
       if (typeof riveInstance.defaultViewModel === 'function') {
         const defaultVM = riveInstance.defaultViewModel()
         if (defaultVM && defaultVM.properties) {
+          const instance = defaultVM.defaultInstance?.() || defaultVM.instance?.()
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           defaultVM.properties.forEach((prop: any) => {
             const exists = props.some((p) => p.name.includes(`/${prop.name}`))
             if (!exists) {
-              props.push({
-                name: `default/${prop.name}`,
-                type: prop.type || 'unknown',
-                value: undefined,
-              })
+              props.push(createPropertyObject(prop, 'default', instance))
             }
           })
+        }
+      }
+
+      // Also check for enums defined at file level
+      if (riveInstance.file?.enums || riveInstance.enums) {
+        const enums = riveInstance.file?.enums || riveInstance.enums
+        if (Array.isArray(enums)) {
+          console.log('Found file-level enums:', enums)
         }
       }
 
@@ -524,7 +602,7 @@ export default function Home() {
           // Get default instance
           const instance = vm.defaultInstance?.() || vm.instance?.()
           if (instance) {
-            // Try different methods to set the value
+            // Try different methods to set the value based on type
             if (typeof instance.setNumberValue === 'function' && typeof value === 'number') {
               instance.setNumberValue(propName, value)
               console.log('Set number value:', propName, value)
@@ -539,6 +617,20 @@ export default function Home() {
               const prop = instance.number(propName)
               if (prop) prop.value = value
               console.log('Set number via property:', propName, value)
+            } else if (typeof instance.enum === 'function' && typeof value === 'string') {
+              // Enum property setter
+              const enumProp = instance.enum(propName)
+              if (enumProp) {
+                enumProp.value = value
+                console.log('Set enum via property:', propName, value)
+              }
+            } else if (typeof instance.getEnumProperty === 'function' && typeof value === 'string') {
+              // Alternative enum property setter
+              const enumProp = instance.getEnumProperty(propName)
+              if (enumProp) {
+                enumProp.value = value
+                console.log('Set enum via getEnumProperty:', propName, value)
+              }
             } else {
               console.log('No suitable setter found, trying direct assignment')
               instance[propName] = value
