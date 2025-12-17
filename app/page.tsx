@@ -279,79 +279,113 @@ export default function Home() {
       const riveInstance = rive as any
       const props: ViewModelProperty[] = []
 
-      // Helper function to extract enum values from a property
+      // Helper function to extract enum values from a property or instance
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const getEnumValues = (prop: any, instance: any): string[] => {
+      const getEnumInfo = (propName: string, instance: any): { values: string[], current: string | undefined } => {
+        const result = { values: [] as string[], current: undefined as string | undefined }
+        if (!instance) return result
+
         try {
-          // Try to get enum values from the property itself
-          if (prop.enumValues && Array.isArray(prop.enumValues)) {
-            return prop.enumValues
-          }
-          // Try to get from instance's enum property
-          if (instance && typeof instance.getEnumProperty === 'function') {
-            const enumProp = instance.getEnumProperty(prop.name)
-            if (enumProp && enumProp.enumValues) {
-              return enumProp.enumValues
-            }
-            // Alternative: enumValues might be called 'values'
-            if (enumProp && enumProp.values) {
-              return enumProp.values
-            }
-          }
-          // Try accessing enum method on instance
-          if (instance && typeof instance.enum === 'function') {
-            const enumProp = instance.enum(prop.name)
+          // Try instance.enum(propName)
+          if (typeof instance.enum === 'function') {
+            const enumProp = instance.enum(propName)
             if (enumProp) {
-              if (enumProp.enumValues) return enumProp.enumValues
-              if (enumProp.values) return enumProp.values
+              result.values = enumProp.enumValues || enumProp.values || []
+              result.current = enumProp.value
+              if (result.values.length > 0) return result
+            }
+          }
+
+          // Try instance.getEnumProperty(propName)
+          if (typeof instance.getEnumProperty === 'function') {
+            const enumProp = instance.getEnumProperty(propName)
+            if (enumProp) {
+              result.values = enumProp.enumValues || enumProp.values || []
+              result.current = enumProp.value
+              if (result.values.length > 0) return result
             }
           }
         } catch {
           // Ignore errors
         }
-        return []
+        return result
       }
 
-      // Helper function to get current enum value
+      // Helper to get nested ViewModel instance from parent instance
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const getEnumCurrentValue = (prop: any, instance: any): string | undefined => {
+      const getNestedInstance = (parentInstance: any, propName: string): any => {
+        if (!parentInstance) return null
         try {
-          if (instance && typeof instance.getEnumProperty === 'function') {
-            const enumProp = instance.getEnumProperty(prop.name)
-            if (enumProp && enumProp.value !== undefined) {
-              return enumProp.value
-            }
+          // Try viewModel(propName) - returns nested ViewModel instance
+          if (typeof parentInstance.viewModel === 'function') {
+            const nested = parentInstance.viewModel(propName)
+            if (nested) return nested
           }
-          if (instance && typeof instance.enum === 'function') {
-            const enumProp = instance.enum(prop.name)
-            if (enumProp && enumProp.value !== undefined) {
-              return enumProp.value
-            }
+          // Try getViewModelProperty
+          if (typeof parentInstance.getViewModelProperty === 'function') {
+            const nested = parentInstance.getViewModelProperty(propName)
+            if (nested) return nested
+          }
+          // Try direct property access
+          if (parentInstance[propName] && typeof parentInstance[propName] === 'object') {
+            return parentInstance[propName]
           }
         } catch {
           // Ignore errors
         }
-        return undefined
+        return null
       }
 
-      // Helper to create property object with enum support
+      // Recursive function to process properties, including nested ViewModels
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const createPropertyObject = (prop: any, vmName: string, instance: any): ViewModelProperty => {
-        const propType = prop.type || 'unknown'
-        const propObj: ViewModelProperty = {
-          name: `${vmName}/${prop.name}`,
-          type: propType,
-          value: undefined,
-        }
+      const processProperties = (properties: any[], pathPrefix: string, instance: any, depth: number = 0) => {
+        if (depth > 5) return // Prevent infinite recursion
 
-        // If it's an enum type, get the available values
-        if (propType === 'enum' || propType === 'enumType') {
-          propObj.type = 'enum'
-          propObj.enumValues = getEnumValues(prop, instance)
-          propObj.value = getEnumCurrentValue(prop, instance)
-        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        properties.forEach((prop: any) => {
+          const propType = prop.type || 'unknown'
+          const fullPath = `${pathPrefix}/${prop.name}`
 
-        return propObj
+          // Handle enum type
+          if (propType === 'enum' || propType === 'enumType') {
+            const enumInfo = getEnumInfo(prop.name, instance)
+            props.push({
+              name: fullPath,
+              type: 'enum',
+              value: enumInfo.current,
+              enumValues: enumInfo.values,
+            })
+          }
+          // Handle nested ViewModel (viewModel type or has nested properties)
+          else if (propType === 'viewModel' || propType === 'viewModelType' || prop.properties) {
+            // Get the nested instance to read its properties
+            const nestedInstance = getNestedInstance(instance, prop.name)
+
+            // If the property itself has sub-properties defined
+            if (prop.properties && Array.isArray(prop.properties)) {
+              processProperties(prop.properties, fullPath, nestedInstance, depth + 1)
+            }
+            // Try to get properties from the nested instance
+            else if (nestedInstance) {
+              // Try nestedInstance.properties
+              if (nestedInstance.properties && Array.isArray(nestedInstance.properties)) {
+                processProperties(nestedInstance.properties, fullPath, nestedInstance, depth + 1)
+              }
+              // Try to get ViewModel definition and its properties
+              else if (nestedInstance.viewModel?.properties) {
+                processProperties(nestedInstance.viewModel.properties, fullPath, nestedInstance, depth + 1)
+              }
+            }
+          }
+          // Handle other types (number, string, boolean, etc.)
+          else {
+            props.push({
+              name: fullPath,
+              type: propType,
+              value: undefined,
+            })
+          }
+        })
       }
 
       // Check viewModelCount and iterate through all ViewModels
@@ -359,12 +393,9 @@ export default function Home() {
         for (let i = 0; i < riveInstance.viewModelCount; i++) {
           const vm = riveInstance.viewModelByIndex(i)
           if (vm && vm.properties) {
-            // Try to get the default instance to read enum values
             const instance = vm.defaultInstance?.() || vm.instance?.()
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            vm.properties.forEach((prop: any) => {
-              props.push(createPropertyObject(prop, vm.name || `ViewModel${i}`, instance))
-            })
+            const vmName = vm.name || `ViewModel${i}`
+            processProperties(vm.properties, vmName, instance, 0)
           }
         }
       }
@@ -374,13 +405,11 @@ export default function Home() {
         const defaultVM = riveInstance.defaultViewModel()
         if (defaultVM && defaultVM.properties) {
           const instance = defaultVM.defaultInstance?.() || defaultVM.instance?.()
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          defaultVM.properties.forEach((prop: any) => {
-            const exists = props.some((p) => p.name.includes(`/${prop.name}`))
-            if (!exists) {
-              props.push(createPropertyObject(prop, 'default', instance))
-            }
-          })
+          // Only add if not already added from viewModelCount loop
+          const existingPaths = new Set(props.map(p => p.name.split('/')[0]))
+          if (!existingPaths.has('default') && !existingPaths.has(defaultVM.name)) {
+            processProperties(defaultVM.properties, defaultVM.name || 'default', instance, 0)
+          }
         }
       }
 
@@ -582,73 +611,132 @@ export default function Home() {
         return
       }
       try {
-        // Parse the property path (e.g., "View Model 1/max kcal" -> viewModelName="View Model 1", propName="max kcal")
+        // Parse the property path (e.g., "MainVM/faceVM/expression" -> path segments)
         const parts = name.split('/')
         const propName = parts.pop() || name
-        const viewModelName = parts.join('/') || 'default'
+        const rootVMName = parts[0] || 'default'
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const riveInstance = rive as any
 
-        // Try to get the ViewModel and its instance
+        // Helper to navigate to nested instance
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const getNestedInstance = (rootInstance: any, pathParts: string[]): any => {
+          let current = rootInstance
+          // Skip the first part (root VM name), iterate through nested path
+          for (let i = 1; i < pathParts.length; i++) {
+            if (!current) return null
+            const partName = pathParts[i]
+            // Try different methods to get nested instance
+            if (typeof current.viewModel === 'function') {
+              current = current.viewModel(partName)
+            } else if (typeof current.getViewModelProperty === 'function') {
+              current = current.getViewModelProperty(partName)
+            } else if (current[partName] && typeof current[partName] === 'object') {
+              current = current[partName]
+            } else {
+              return null
+            }
+          }
+          return current
+        }
+
+        // Helper to set value on instance
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const setValueOnInstance = (instance: any, propName: string, value: unknown): boolean => {
+          if (!instance) return false
+
+          // Try different methods to set the value based on type
+          if (typeof instance.setNumberValue === 'function' && typeof value === 'number') {
+            instance.setNumberValue(propName, value)
+            console.log('Set number value:', propName, value)
+            return true
+          }
+          if (typeof instance.setStringValue === 'function' && typeof value === 'string') {
+            instance.setStringValue(propName, value)
+            console.log('Set string value:', propName, value)
+            return true
+          }
+          if (typeof instance.setBooleanValue === 'function' && typeof value === 'boolean') {
+            instance.setBooleanValue(propName, value)
+            console.log('Set boolean value:', propName, value)
+            return true
+          }
+          if (typeof instance.number === 'function' && typeof value === 'number') {
+            const prop = instance.number(propName)
+            if (prop) {
+              prop.value = value
+              console.log('Set number via property:', propName, value)
+              return true
+            }
+          }
+          if (typeof instance.enum === 'function' && typeof value === 'string') {
+            const enumProp = instance.enum(propName)
+            if (enumProp) {
+              enumProp.value = value
+              console.log('Set enum via property:', propName, value)
+              return true
+            }
+          }
+          if (typeof instance.getEnumProperty === 'function' && typeof value === 'string') {
+            const enumProp = instance.getEnumProperty(propName)
+            if (enumProp) {
+              enumProp.value = value
+              console.log('Set enum via getEnumProperty:', propName, value)
+              return true
+            }
+          }
+          if (typeof instance.string === 'function' && typeof value === 'string') {
+            const stringProp = instance.string(propName)
+            if (stringProp) {
+              stringProp.value = value
+              console.log('Set string via property:', propName, value)
+              return true
+            }
+          }
+          if (typeof instance.boolean === 'function' && typeof value === 'boolean') {
+            const boolProp = instance.boolean(propName)
+            if (boolProp) {
+              boolProp.value = value
+              console.log('Set boolean via property:', propName, value)
+              return true
+            }
+          }
+          return false
+        }
+
+        // Get root ViewModel
         let vm = null
-        if (viewModelName === 'default') {
+        if (rootVMName === 'default') {
           vm = riveInstance.defaultViewModel?.()
         } else {
-          vm = riveInstance.viewModelByName?.(viewModelName)
+          vm = riveInstance.viewModelByName?.(rootVMName)
         }
 
         if (vm) {
-          // Get default instance
-          const instance = vm.defaultInstance?.() || vm.instance?.()
-          if (instance) {
-            // Try different methods to set the value based on type
-            if (typeof instance.setNumberValue === 'function' && typeof value === 'number') {
-              instance.setNumberValue(propName, value)
-              console.log('Set number value:', propName, value)
-            } else if (typeof instance.setStringValue === 'function' && typeof value === 'string') {
-              instance.setStringValue(propName, value)
-              console.log('Set string value:', propName, value)
-            } else if (typeof instance.setBooleanValue === 'function' && typeof value === 'boolean') {
-              instance.setBooleanValue(propName, value)
-              console.log('Set boolean value:', propName, value)
-            } else if (typeof instance.number === 'function' && typeof value === 'number') {
-              // Alternative API: instance.number(propName).value = value
-              const prop = instance.number(propName)
-              if (prop) prop.value = value
-              console.log('Set number via property:', propName, value)
-            } else if (typeof instance.enum === 'function' && typeof value === 'string') {
-              // Enum property setter
-              const enumProp = instance.enum(propName)
-              if (enumProp) {
-                enumProp.value = value
-                console.log('Set enum via property:', propName, value)
-              }
-            } else if (typeof instance.getEnumProperty === 'function' && typeof value === 'string') {
-              // Alternative enum property setter
-              const enumProp = instance.getEnumProperty(propName)
-              if (enumProp) {
-                enumProp.value = value
-                console.log('Set enum via getEnumProperty:', propName, value)
-              }
-            } else {
+          // Get root instance
+          const rootInstance = vm.defaultInstance?.() || vm.instance?.()
+
+          // Navigate to the correct nested instance if path has more than 2 parts
+          // e.g., "MainVM/faceVM/expression" -> parts = ["MainVM", "faceVM"], propName = "expression"
+          const targetInstance = parts.length > 1
+            ? getNestedInstance(rootInstance, parts)
+            : rootInstance
+
+          if (targetInstance) {
+            const success = setValueOnInstance(targetInstance, propName, value)
+            if (!success) {
               console.log('No suitable setter found, trying direct assignment')
-              instance[propName] = value
+              targetInstance[propName] = value
             }
           }
         }
 
-        // Also try viewModelInstance from hook
-        if (viewModelInstance) {
+        // Also try viewModelInstance from hook (for simple paths)
+        if (viewModelInstance && parts.length <= 1) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const vmi = viewModelInstance as any
-          if (typeof vmi.number === 'function' && typeof value === 'number') {
-            const prop = vmi.number(propName)
-            if (prop) {
-              prop.value = value
-              console.log('Set via viewModelInstance.number:', propName, value)
-            }
-          }
+          setValueOnInstance(vmi, propName, value)
         }
 
         setViewModelProps((prev) =>
