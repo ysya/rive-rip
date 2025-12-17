@@ -206,8 +206,22 @@ export default function Home() {
     const stateMachines = rive.stateMachineNames
     if (stateMachines && stateMachines.length > 0) {
       setStateMachineList({ stateMachines, active: stateMachines[0] })
-      const inputs = rive.stateMachineInputs(stateMachines[0])
-      if (inputs) setStateMachineInputs(inputs)
+
+      // If default controller is state-machines, we need to play the state machine
+      // to get the inputs. Otherwise, inputs won't be available until played.
+      if (controller.active === 'state-machines') {
+        rive.stop()
+        rive.play(stateMachines[0])
+        // Small delay to ensure state machine is initialized before getting inputs
+        setTimeout(() => {
+          const inputs = rive.stateMachineInputs(stateMachines[0])
+          if (inputs) setStateMachineInputs(inputs)
+        }, 50)
+      } else {
+        // For animations mode, still try to get inputs (they may be empty)
+        const inputs = rive.stateMachineInputs(stateMachines[0])
+        if (inputs) setStateMachineInputs(inputs)
+      }
     }
 
     // Get text runs
@@ -630,8 +644,11 @@ export default function Home() {
     } else if (state === 'state-machines' && stateMachineList) {
       // Play the active state machine
       rive?.play(stateMachineList.active)
-      const inputs = rive?.stateMachineInputs(stateMachineList.active)
-      if (inputs) setStateMachineInputs(inputs)
+      // Delay getting inputs to ensure state machine is fully initialized
+      setTimeout(() => {
+        const inputs = rive?.stateMachineInputs(stateMachineList.active)
+        if (inputs) setStateMachineInputs(inputs)
+      }, 50)
     }
   }
 
@@ -649,8 +666,11 @@ export default function Home() {
     rive.stop()
     setStateMachineList({ ...stateMachineList, active: stateMachine })
     rive.play(stateMachine)
-    const inputs = rive.stateMachineInputs(stateMachine)
-    if (inputs) setStateMachineInputs(inputs)
+    // Delay getting inputs to ensure state machine is fully initialized
+    setTimeout(() => {
+      const inputs = rive.stateMachineInputs(stateMachine)
+      if (inputs) setStateMachineInputs(inputs)
+    }, 50)
   }
 
   // Drag and drop handlers
