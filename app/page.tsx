@@ -611,139 +611,159 @@ export default function Home() {
         return
       }
       try {
-        // Parse the property path (e.g., "MainVM/faceVM/expression" -> path segments)
+        // Parse the property path (e.g., "moodVM/mood" or "defaultVM/moodVM/mood")
         const parts = name.split('/')
-        const propName = parts.pop() || name
-        const rootVMName = parts[0] || 'default'
+        const propName = parts[parts.length - 1] // Last part is the property name
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const riveInstance = rive as any
 
-        // Helper to navigate to nested instance
+        // Get the auto-bound viewModelInstance first (recommended approach)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const getNestedInstance = (rootInstance: any, pathParts: string[]): any => {
-          let current = rootInstance
-          // Skip the first part (root VM name), iterate through nested path
-          for (let i = 1; i < pathParts.length; i++) {
-            if (!current) return null
-            const partName = pathParts[i]
-            // Try different methods to get nested instance
-            if (typeof current.viewModel === 'function') {
-              current = current.viewModel(partName)
-            } else if (typeof current.getViewModelProperty === 'function') {
-              current = current.getViewModelProperty(partName)
-            } else if (current[partName] && typeof current[partName] === 'object') {
-              current = current[partName]
-            } else {
-              return null
+        const vmi = (viewModelInstance || riveInstance.viewModelInstance) as any
+
+        let success = false
+
+        if (vmi) {
+          // Build the nested path for property access (excluding root VM name)
+          // e.g., "moodVM/mood" -> path is "mood" on the moodVM instance
+          // e.g., "defaultVM/moodVM/mood" -> path is "moodVM/mood"
+          const pathForProperty = parts.length > 2
+            ? parts.slice(1).join('/') // Skip root VM name for deeply nested
+            : parts.length === 2
+              ? parts[1] // Direct child property
+              : propName // Single property name
+
+          console.log('Attempting to set property:', { name, pathForProperty, propName, value, type: typeof value })
+
+          // Try using path notation (Rive's recommended way for nested properties)
+          // vmi.number("path/to/property").value = x
+          try {
+            if (typeof value === 'number' && typeof vmi.number === 'function') {
+              const prop = vmi.number(pathForProperty)
+              if (prop) {
+                prop.value = value
+                console.log('Set number via path:', pathForProperty, value)
+                success = true
+              }
+            }
+            if (!success && typeof value === 'string' && typeof vmi.enum === 'function') {
+              const prop = vmi.enum(pathForProperty)
+              if (prop) {
+                prop.value = value
+                console.log('Set enum via path:', pathForProperty, value)
+                success = true
+              }
+            }
+            if (!success && typeof value === 'string' && typeof vmi.string === 'function') {
+              const prop = vmi.string(pathForProperty)
+              if (prop) {
+                prop.value = value
+                console.log('Set string via path:', pathForProperty, value)
+                success = true
+              }
+            }
+            if (!success && typeof value === 'boolean' && typeof vmi.boolean === 'function') {
+              const prop = vmi.boolean(pathForProperty)
+              if (prop) {
+                prop.value = value
+                console.log('Set boolean via path:', pathForProperty, value)
+                success = true
+              }
+            }
+            if (!success && typeof vmi.trigger === 'function' && value === true) {
+              const prop = vmi.trigger(pathForProperty)
+              if (prop) {
+                prop.trigger()
+                console.log('Fired trigger via path:', pathForProperty)
+                success = true
+              }
+            }
+          } catch (e) {
+            console.log('Path notation failed, trying alternative:', e)
+          }
+
+          // If path notation didn't work, try navigating to nested instance manually
+          if (!success && parts.length > 2) {
+            try {
+              // Navigate: rootVM -> nestedVM -> property
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              let current: any = vmi
+              // Navigate through intermediate ViewModels (skip root, stop before property)
+              for (let i = 1; i < parts.length - 1; i++) {
+                if (current && typeof current.viewModel === 'function') {
+                  current = current.viewModel(parts[i])
+                } else {
+                  current = null
+                  break
+                }
+              }
+              if (current) {
+                if (typeof value === 'number' && typeof current.number === 'function') {
+                  const prop = current.number(propName)
+                  if (prop) { prop.value = value; success = true }
+                }
+                if (!success && typeof value === 'string' && typeof current.enum === 'function') {
+                  const prop = current.enum(propName)
+                  if (prop) { prop.value = value; success = true }
+                }
+                if (!success && typeof value === 'string' && typeof current.string === 'function') {
+                  const prop = current.string(propName)
+                  if (prop) { prop.value = value; success = true }
+                }
+                if (!success && typeof value === 'boolean' && typeof current.boolean === 'function') {
+                  const prop = current.boolean(propName)
+                  if (prop) { prop.value = value; success = true }
+                }
+              }
+            } catch (e) {
+              console.log('Manual navigation failed:', e)
             }
           }
-          return current
         }
 
-        // Helper to set value on instance
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const setValueOnInstance = (instance: any, propName: string, value: unknown): boolean => {
-          if (!instance) return false
+        // Fallback: Try through viewModelByName for root-level access
+        if (!success && parts.length >= 2) {
+          const rootVMName = parts[0]
+          const vm = rootVMName === 'default' || rootVMName === 'defaultVM'
+            ? riveInstance.defaultViewModel?.()
+            : riveInstance.viewModelByName?.(rootVMName)
 
-          // Try different methods to set the value based on type
-          if (typeof instance.setNumberValue === 'function' && typeof value === 'number') {
-            instance.setNumberValue(propName, value)
-            console.log('Set number value:', propName, value)
-            return true
-          }
-          if (typeof instance.setStringValue === 'function' && typeof value === 'string') {
-            instance.setStringValue(propName, value)
-            console.log('Set string value:', propName, value)
-            return true
-          }
-          if (typeof instance.setBooleanValue === 'function' && typeof value === 'boolean') {
-            instance.setBooleanValue(propName, value)
-            console.log('Set boolean value:', propName, value)
-            return true
-          }
-          if (typeof instance.number === 'function' && typeof value === 'number') {
-            const prop = instance.number(propName)
-            if (prop) {
-              prop.value = value
-              console.log('Set number via property:', propName, value)
-              return true
+          if (vm) {
+            const instance = vm.defaultInstance?.() || vm.instance?.()
+            if (instance) {
+              // For "moodVM/mood", parts[0]="moodVM", propName="mood"
+              // Try setting directly on the instance
+              if (typeof value === 'number' && typeof instance.number === 'function') {
+                const prop = instance.number(propName)
+                if (prop) { prop.value = value; success = true }
+              }
+              if (!success && typeof value === 'string' && typeof instance.enum === 'function') {
+                const prop = instance.enum(propName)
+                if (prop) { prop.value = value; success = true }
+              }
+              if (!success && typeof value === 'string' && typeof instance.string === 'function') {
+                const prop = instance.string(propName)
+                if (prop) { prop.value = value; success = true }
+              }
+              if (!success && typeof value === 'boolean' && typeof instance.boolean === 'function') {
+                const prop = instance.boolean(propName)
+                if (prop) { prop.value = value; success = true }
+              }
             }
           }
-          if (typeof instance.enum === 'function' && typeof value === 'string') {
-            const enumProp = instance.enum(propName)
-            if (enumProp) {
-              enumProp.value = value
-              console.log('Set enum via property:', propName, value)
-              return true
-            }
-          }
-          if (typeof instance.getEnumProperty === 'function' && typeof value === 'string') {
-            const enumProp = instance.getEnumProperty(propName)
-            if (enumProp) {
-              enumProp.value = value
-              console.log('Set enum via getEnumProperty:', propName, value)
-              return true
-            }
-          }
-          if (typeof instance.string === 'function' && typeof value === 'string') {
-            const stringProp = instance.string(propName)
-            if (stringProp) {
-              stringProp.value = value
-              console.log('Set string via property:', propName, value)
-              return true
-            }
-          }
-          if (typeof instance.boolean === 'function' && typeof value === 'boolean') {
-            const boolProp = instance.boolean(propName)
-            if (boolProp) {
-              boolProp.value = value
-              console.log('Set boolean via property:', propName, value)
-              return true
-            }
-          }
-          return false
         }
 
-        // Get root ViewModel
-        let vm = null
-        if (rootVMName === 'default') {
-          vm = riveInstance.defaultViewModel?.()
+        if (success) {
+          setViewModelProps((prev) =>
+            prev.map((p) => (p.name === name ? { ...p, value } : p))
+          )
+          console.log('Updated ViewModel property:', name, value)
+          toast.success(`Updated: ${propName} = ${value}`)
         } else {
-          vm = riveInstance.viewModelByName?.(rootVMName)
+          console.warn('Could not find setter for property:', name)
+          toast.error(`Could not update: ${propName}`)
         }
-
-        if (vm) {
-          // Get root instance
-          const rootInstance = vm.defaultInstance?.() || vm.instance?.()
-
-          // Navigate to the correct nested instance if path has more than 2 parts
-          // e.g., "MainVM/faceVM/expression" -> parts = ["MainVM", "faceVM"], propName = "expression"
-          const targetInstance = parts.length > 1
-            ? getNestedInstance(rootInstance, parts)
-            : rootInstance
-
-          if (targetInstance) {
-            const success = setValueOnInstance(targetInstance, propName, value)
-            if (!success) {
-              console.log('No suitable setter found, trying direct assignment')
-              targetInstance[propName] = value
-            }
-          }
-        }
-
-        // Also try viewModelInstance from hook (for simple paths)
-        if (viewModelInstance && parts.length <= 1) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const vmi = viewModelInstance as any
-          setValueOnInstance(vmi, propName, value)
-        }
-
-        setViewModelProps((prev) =>
-          prev.map((p) => (p.name === name ? { ...p, value } : p))
-        )
-        console.log('Updated ViewModel property:', name, value)
-        toast.success(`Updated: ${propName} = ${value}`)
       } catch (error) {
         console.error('Failed to update ViewModel property:', error)
         toast.error(`Failed to update property: ${name}`)
